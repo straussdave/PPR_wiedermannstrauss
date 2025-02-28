@@ -6,29 +6,44 @@ namespace DiningPhilosophers
 {
     internal class Program
     {
-        static volatile bool running = true;
 
-        static Stopwatch Run(int maxThinkingTime, int philosopherIndex, int maxEatingTime, object[]forks, int numberOfPhilosophers, Stopwatch stopwatch)
+        /// <summary>
+        /// This method unlocks the lockObject in case of an exception
+        /// </summary>
+        /// <param name="lockObj"> Object to lock </param>
+        static void MyLock2(object lockObj)
         {
-            while (running)
+            var lockTaken = false;
+            try
             {
+                Monitor.Enter(lockObj, ref lockTaken);
+                return;
+            }
+            catch (Exception ex)
+            {
+                if (lockTaken)
+                    Monitor.Exit(lockObj);
+            }
+        }
+
+        static Stopwatch Run(int maxThinkingTime, int philosopherIndex, int maxEatingTime, object[] forks, int numberOfPhilosophers, Stopwatch stopwatch, CancellationTokenSource cts)
+        {
+            while (!cts.IsCancellationRequested)
+            {
+
+                int firstForkIndex = philosopherIndex % 2 == 0 ? ((philosopherIndex + 1) % numberOfPhilosophers) : (philosopherIndex); //solving Circular Wait
+                object firstFork = forks[firstForkIndex];
+
+                int secondForkIndex = philosopherIndex % 2 == 0 ? (philosopherIndex) : ((philosopherIndex + 1) % numberOfPhilosophers); //solving Circular Wait
+                object secondFork = forks[secondForkIndex];
+
                 int thinkingTime = new Random().Next(0, maxThinkingTime);
                 Thread.Sleep(thinkingTime);
                 Console.WriteLine("phil " + philosopherIndex + " finished Thinking");
 
-                //int leftForkIndex = philosopherIndex; 
-                int firstForkIndex = philosopherIndex % 2 == 0 ? ((philosopherIndex + 1) % numberOfPhilosophers) : (philosopherIndex); //solving Circular Wait
-
-                object leftFork = forks[firstForkIndex];
-                Monitor.Enter(leftFork);
+                MyLock2(firstFork);
                 Console.WriteLine("phil " + philosopherIndex + " took first fork: " + firstForkIndex);
-                Thread.Sleep(10);
-
-                //int rightForkIndex = (philosopherIndex + 1) % numberOfPhilosophers; 
-                int secondForkIndex = philosopherIndex % 2 == 0 ? (philosopherIndex) : ((philosopherIndex + 1) % numberOfPhilosophers); //solving Circular Wait
-
-                object rightFork = forks[secondForkIndex];
-                Monitor.Enter(rightFork);
+                MyLock2(secondFork);
                 Console.WriteLine("phil " + philosopherIndex + " took second fork: " + secondForkIndex);
 
                 int eatingTime = new Random().Next(0, maxEatingTime);
@@ -37,16 +52,19 @@ namespace DiningPhilosophers
                 stopwatch.Stop();//measuring eating time
                 Console.WriteLine("phil " + philosopherIndex + " is done eating");
 
-                Monitor.Exit(leftFork);
-                Monitor.Exit(rightFork);
+                Monitor.Exit(firstFork);
+                Monitor.Exit(secondFork);
             }
+            
 
             return stopwatch;
-            
+
+
         }
 
         static void Main(string[] args)
         {
+            CancellationTokenSource cts = new CancellationTokenSource();
             Console.WriteLine("Number of philosophers: ");
             int numberOfPhilosophers = int.Parse(Console.ReadLine());
             Console.WriteLine("Maximum thinking time: ");
@@ -68,7 +86,7 @@ namespace DiningPhilosophers
             {
                 int localIndex = i;
                 stopwatchesToMeasureEating[i] = new Stopwatch();
-                philosophers[i] = new Thread(() => Run(maxThinkingTime, localIndex, maxEatingTime, forks, numberOfPhilosophers, stopwatchesToMeasureEating[localIndex]));
+                philosophers[i] = new Thread(() => Run(maxThinkingTime, localIndex, maxEatingTime, forks, numberOfPhilosophers, stopwatchesToMeasureEating[localIndex], cts));
                 philosophers[i].Name = i.ToString();
             }
 
@@ -81,7 +99,7 @@ namespace DiningPhilosophers
             }
 
             Console.ReadLine();
-            running = false;
+            cts.Cancel();
 
             foreach (Thread philosopher in philosophers)
             {
