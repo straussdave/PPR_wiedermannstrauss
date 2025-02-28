@@ -1,49 +1,83 @@
-﻿using System.Collections.Generic;
-using System;
+﻿using System;
+using System.Threading;
 
 namespace DiningPhilosophers
 {
     internal class Program
     {
-        static void Run(int maxThinkingTime, int philosopherIndex, int maxEatingTime, object[]forks, int numberOfPhilosophers)
+        static volatile bool running = true;
+        static readonly object syncLock = new object();
+
+        static void Run(int maxThinkingTime, int philosopherIndex, int maxEatingTime, object[] forks, int numberOfPhilosophers)
         {
-            bool running = true;
+            Random rand = new Random();
+
             while (running)
             {
-                int thinkingTime = new Random().Next(0, maxThinkingTime);
+                // Thinking phase
+                int thinkingTime = rand.Next(0, maxThinkingTime);
                 Thread.Sleep(thinkingTime);
-                Console.WriteLine("phil " + philosopherIndex + " finished Thinking");
+                Console.WriteLine($"phil {philosopherIndex} finished Thinking");
 
                 int leftForkIndex = philosopherIndex;
-                lock (forks[leftForkIndex])
+                object leftFork = forks[leftForkIndex];
+
+                if (!running) return; // Exit if stopping
+
+                Monitor.Enter(leftFork);
+                Console.WriteLine($"phil {philosopherIndex} took first fork: {leftForkIndex}");
+                Thread.Sleep(10); // Simulate delay
+
+                int rightForkIndex = (philosopherIndex + 1) % numberOfPhilosophers;
+                object rightFork = forks[rightForkIndex];
+
+                bool hasRightFork = false;
+
+                lock (syncLock)
                 {
-                    object leftFork = forks[leftForkIndex];
-                    Console.WriteLine("phil " + philosopherIndex + " took first fork: " + leftForkIndex);
-
-                    int rightForkIndex = (philosopherIndex + 1) % numberOfPhilosophers;
-                    lock (forks[rightForkIndex])
+                    while (running)
                     {
-                        object rightFork = forks[rightForkIndex];
-                        Console.WriteLine("phil " + philosopherIndex + " took second fork: " + rightForkIndex);
+                        if (Monitor.TryEnter(rightFork))
+                        {
+                            hasRightFork = true;
+                            break;
+                        }
 
-                        int eatingTime = new Random().Next(0, maxEatingTime);
-                        Thread.Sleep(eatingTime);
-
-                        Console.WriteLine("phil " + philosopherIndex + " is done eating");
+                        Console.WriteLine($"phil {philosopherIndex} waiting for second fork: {rightForkIndex}");
+                        Monitor.Wait(syncLock, 100);
                     }
                 }
 
+                if (!running)
+                {
+                    Monitor.Exit(leftFork);
+                    return;
+                }
 
-                
+                if (hasRightFork)
+                {
+                    Console.WriteLine($"phil {philosopherIndex} took second fork: {rightForkIndex}");
+
+                    int eatingTime = rand.Next(0, maxEatingTime);
+                    Thread.Sleep(eatingTime);
+                    Console.WriteLine($"phil {philosopherIndex} is done eating");
+
+                    Monitor.Exit(rightFork);
+                }
+
+                Monitor.Exit(leftFork);
             }
         }
+
         static void Main(string[] args)
         {
+            Console.WriteLine("Number of philosophers: ");
             int numberOfPhilosophers = int.Parse(Console.ReadLine());
+            Console.WriteLine("Maximum thinking time: ");
             int maxThinkingTime = int.Parse(Console.ReadLine());
+            Console.WriteLine("Maximum eating time: ");
             int maxEatingTime = int.Parse(Console.ReadLine());
 
-            
             object[] forks = new object[numberOfPhilosophers];
             for (int i = 0; i < numberOfPhilosophers; i++)
             {
@@ -55,7 +89,6 @@ namespace DiningPhilosophers
             {
                 int localIndex = i;
                 philosophers[i] = new Thread(() => Run(maxThinkingTime, localIndex, maxEatingTime, forks, numberOfPhilosophers));
-                
             }
 
             foreach (Thread philosopher in philosophers)
@@ -63,13 +96,20 @@ namespace DiningPhilosophers
                 philosopher.Start();
             }
 
+            Console.ReadLine();
+            running = false;
+
+            lock (syncLock)
+            {
+                Monitor.PulseAll(syncLock);
+            }
+
             foreach (Thread philosopher in philosophers)
             {
                 philosopher.Join();
             }
 
-
-
+            Console.WriteLine("All philosophers stopped.");
         }
     }
 }
