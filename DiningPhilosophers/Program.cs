@@ -11,20 +11,20 @@ namespace DiningPhilosophers
         /// This method unlocks the lockObject in case of an exception
         /// </summary>
         /// <param name="lockObj"> Object to lock </param>
-        static void MyLock2(object lockObj)
-        {
-            var lockTaken = false;
-            try
-            {
-                Monitor.Enter(lockObj, ref lockTaken);
-                return;
-            }
-            catch (Exception ex)
-            {
-                if (lockTaken)
-                    Monitor.Exit(lockObj);
-            }
-        }
+        //static void MyLock2(object lockObj)
+        //{
+        //    var lockTaken = false;
+        //    try
+        //    {
+        //        Monitor.Enter(lockObj, ref lockTaken);
+        //        return;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        if (lockTaken)
+        //            Monitor.Exit(lockObj);
+        //    }
+        //}
 
         static Stopwatch Run(int maxThinkingTime, int philosopherIndex, int maxEatingTime, object[] forks, int numberOfPhilosophers, Stopwatch stopwatch, CancellationTokenSource cts)
         {
@@ -41,19 +41,35 @@ namespace DiningPhilosophers
                 Thread.Sleep(thinkingTime);
                 Console.WriteLine("phil " + philosopherIndex + " finished Thinking");
 
-                MyLock2(firstFork);
-                Console.WriteLine("phil " + philosopherIndex + " took first fork: " + firstForkIndex);
-                MyLock2(secondFork);
-                Console.WriteLine("phil " + philosopherIndex + " took second fork: " + secondForkIndex);
+                bool firstLockTaken = false;
+                bool secondLockTaken = false;
 
-                int eatingTime = new Random().Next(0, maxEatingTime);
-                stopwatch.Start();//measuring eating time
-                Thread.Sleep(eatingTime);
-                stopwatch.Stop();//measuring eating time
-                Console.WriteLine("phil " + philosopherIndex + " is done eating");
+                try
+                {
+                    Monitor.Enter(firstFork, ref firstLockTaken);
+                    Console.WriteLine("phil " + philosopherIndex + " took first fork: " + firstForkIndex);
+                    Monitor.Enter(secondFork, ref secondLockTaken);
+                    Console.WriteLine("phil " + philosopherIndex + " took second fork: " + secondForkIndex);
 
-                Monitor.Exit(firstFork);
-                Monitor.Exit(secondFork);
+                    int eatingTime = new Random().Next(0, maxEatingTime);
+                    stopwatch.Start();//measuring eating time
+                    Thread.Sleep(eatingTime);
+                    stopwatch.Stop();//measuring eating time
+                    Console.WriteLine("phil " + philosopherIndex + " is done eating");
+                }
+                finally
+                {
+                    if (firstLockTaken)
+                    {
+                        Monitor.Exit(firstFork);
+                    }
+                    if (secondLockTaken)
+                    {
+                        Monitor.Exit(secondFork);
+                    }
+                }
+
+                
             }
             
 
@@ -98,7 +114,7 @@ namespace DiningPhilosophers
                 philosopher.Start();
             }
 
-            Console.ReadLine();
+            Console.ReadKey();
             cts.Cancel();
 
             foreach (Thread philosopher in philosophers)
@@ -115,7 +131,7 @@ namespace DiningPhilosophers
             }
 
             Console.WriteLine("Total eating time was: " + eatingTime);
-            Console.WriteLine("Average eating time was: " + eatingTime/numberOfPhilosophers);
+            Console.WriteLine("eating time per philosopher: " + eatingTime/numberOfPhilosophers);
             Console.WriteLine("Total dinner time was: " + measuringDinnerTime.ElapsedMilliseconds);
 
 
