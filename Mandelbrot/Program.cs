@@ -18,19 +18,20 @@ namespace Mandelbrot
             Console.WriteLine("Height of image: ");
             int height = int.Parse(Console.ReadLine());
             //Console.WriteLine("min x: ");
-            //int minX = int.Parse(Console.ReadLine());
+            //double minX = double.Parse(Console.ReadLine());
             //Console.WriteLine("max x: ");
-            //int maxX = int.Parse(Console.ReadLine());
+            //double maxX = double.Parse(Console.ReadLine());
             //Console.WriteLine("min y: ");
-            //int minY = int.Parse(Console.ReadLine());
+            //double minY = double.Parse(Console.ReadLine());
             //Console.WriteLine("max y: ");
-            //int maxY = int.Parse(Console.ReadLine());
+            //double maxY = double.Parse(Console.ReadLine());
             //Console.WriteLine("max iterations: ");
             //int maxIterations = int.Parse(Console.ReadLine());
-            int minX = -2;
-            int minY = -2;
-            int maxX = 1;
-            int maxY = 1;
+
+            double minX = -0.85;
+            double minY = -0.1;
+            double maxX = -0.65;
+            double maxY = 0.1;
             int maxIterations = 1000;
 
             Bitmap bitmap = new Bitmap(width, height);
@@ -39,7 +40,7 @@ namespace Mandelbrot
             Color[,] result = new Color[width, height];
 
             // process each row in parallel
-            p.ParallelCalculation(ref result, height, width, minX, maxX, minY, maxY, maxIterations);
+            p.SerialCalculation(result, height, width, minX, maxX, minY, maxY, maxIterations);
             
 
             p.CreateMandelbrotImage(bitmap, result);
@@ -47,9 +48,9 @@ namespace Mandelbrot
             bitmap.Save(filePath);
         }
 
-        private void ParallelCalculation(Color[,] result, int height, int width, int minX, int maxX, int minY, int maxY, int maxIterations)
+        private void ParallelCalculation(Color[,] result, int height, int width, double minX, double maxX, double minY, double maxY, int maxIterations)
         {
-            Parallel.for(0, height, y =>
+            Parallel.For(0, height, y =>
             {
                 for (int x = 0; x < width; x++)
                 {
@@ -60,7 +61,7 @@ namespace Mandelbrot
             });
         }
 
-        private void SerialCalculation(Color[,] result, int height, int width, int minX, int maxX, int minY, int maxY, int maxIterations)
+        private void SerialCalculation(Color[,] result, int height, int width, double minX, double maxX, double minY, double maxY, int maxIterations)
         {
             for (int y = 0; y < height; y++)
             {
@@ -68,7 +69,7 @@ namespace Mandelbrot
                 {
                     int localX = x;
                     int localY = y;
-                    result[x, y] = p.calcPixel(localX, localY, minX, maxX, minY, maxY, width, height, maxIterations);
+                    result[x, y] = calcPixel(localX, localY, minX, maxX, minY, maxY, width, height, maxIterations);
                 }
             }
         }
@@ -79,7 +80,7 @@ namespace Mandelbrot
             return Directory.GetParent(Directory.GetParent(Directory.GetParent(binDirectory).FullName).FullName).FullName;
         }
 
-        private Color calcPixel(int px, int py, int minX, int maxX, int minY, int maxY, int width, int height, int maxIterations)
+        private Color calcPixel(int px, int py, double minX, double maxX, double minY, double maxY, int width, int height, int maxIterations)
         {
             var tuple = normalizeToViewRectangle(px, py, minX, maxX, minY, maxY, width, height);
             double cx = tuple.Item1;
@@ -100,14 +101,14 @@ namespace Mandelbrot
             return Color.Black;
         }
 
-        private Tuple<double,double> normalizeToViewRectangle(int px, int py, int minX, int maxX, int minY, int maxY, int width, int height)
+        private Tuple<double,double> normalizeToViewRectangle(int px, int py, double minX, double maxX, double minY, double maxY, int width, int height)
         {
             double normalizedX = normalize(minX, maxX, px, width);
             double normalizedY = normalize(minY, maxY, py, height);
             return Tuple.Create(normalizedX,normalizedY);
         }
 
-        private double normalize(int min, int max, double p, int size)
+        private double normalize(double min, double max, double p, int size)
         {
             return min + (p / size) * (max - min);
         }
