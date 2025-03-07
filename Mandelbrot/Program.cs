@@ -2,6 +2,7 @@
 
 using System;
 using System.Drawing;
+using System.Diagnostics;
 
 namespace Mandelbrot
 {
@@ -10,9 +11,6 @@ namespace Mandelbrot
 
         static void Main(string[] args)
         {
-            Program p = new Program();
-
-            
             Console.WriteLine("Width of image: ");
             int width = int.Parse(Console.ReadLine());
             Console.WriteLine("Height of image: ");
@@ -28,11 +26,26 @@ namespace Mandelbrot
             //Console.WriteLine("max iterations: ");
             //int maxIterations = int.Parse(Console.ReadLine());
 
-            double minX = -0.85;
-            double minY = -0.1;
-            double maxX = -0.65;
-            double maxY = 0.1;
-            int maxIterations = 1000;
+            //Seepferd
+            //double minX = -0.85;
+            //double minY = -0.1;
+            //double maxX = -0.65;
+            //double maxY = 0.1;
+            //int maxIterations = 1000;
+
+            //standard
+            //double minX = -2.0;
+            //double minY = -1.5;
+            //double maxX = 1.0;
+            //double maxY = 1.5;
+            //int maxIterations = 1000;
+
+            //intput to measure:
+            double minX = -2.0;
+            double minY = -1.0;
+            double maxX = 1.0;
+            double maxY = 1.0;
+            int maxIterations = 500;
 
             Bitmap bitmap = new Bitmap(width, height);
 
@@ -40,28 +53,38 @@ namespace Mandelbrot
             Color[,] result = new Color[width, height];
 
             // process each row in parallel
-            p.SerialCalculation(result, height, width, minX, maxX, minY, maxY, maxIterations);
+            ParallelCalculation(result, height, width, minX, maxX, minY, maxY, maxIterations);
             
-
-            p.CreateMandelbrotImage(bitmap, result);
-            string filePath = Path.Combine(p.GetDirectory(), "mandelbrot.png");
+            CreateMandelbrotImage(bitmap, result);
+            string filePath = Path.Combine(GetDirectory(), "mandelbrot.png");
             bitmap.Save(filePath);
         }
 
-        private void ParallelCalculation(Color[,] result, int height, int width, double minX, double maxX, double minY, double maxY, int maxIterations)
+        static private void ParallelCalculation(Color[,] result, int height, int width, double minX, double maxX, double minY, double maxY, int maxIterations)
         {
-            Parallel.For(0, height, y =>
+            int maxCores = Environment.ProcessorCount;
+            ParallelOptions options = new ParallelOptions { MaxDegreeOfParallelism = maxCores };
+            for (int usedCores = 1; usedCores <= maxCores; usedCores++)
             {
-                for (int x = 0; x < width; x++)
+                Stopwatch stopwatch = new Stopwatch();
+                options.MaxDegreeOfParallelism = usedCores;
+                stopwatch.Start();
+                Parallel.For(0, height, options, y =>
                 {
-                    int localx = x;
-                    int localy = y;
-                    result[x, y] = calcPixel(localx, localy, minX, maxX, minY, maxY, width, height, maxIterations);
-                }
-            });
+                    for (int x = 0; x < width; x++)
+                    {
+                        int localx = x;
+                        int localy = y;
+                        result[x, y] = calcPixel(localx, localy, minX, maxX, minY, maxY, width, height, maxIterations);
+                    }
+                });
+                stopwatch.Stop(); ;
+                Console.WriteLine("Needed time when using " + usedCores + " cores: " + stopwatch.ElapsedMilliseconds + "ms");
+                
+            }
         }
 
-        private void SerialCalculation(Color[,] result, int height, int width, double minX, double maxX, double minY, double maxY, int maxIterations)
+        static private void SerialCalculation(Color[,] result, int height, int width, double minX, double maxX, double minY, double maxY, int maxIterations)
         {
             for (int y = 0; y < height; y++)
             {
@@ -74,13 +97,13 @@ namespace Mandelbrot
             }
         }
 
-        private string GetDirectory()
+        static private string GetDirectory()
         {
             string binDirectory = Directory.GetCurrentDirectory();
             return Directory.GetParent(Directory.GetParent(Directory.GetParent(binDirectory).FullName).FullName).FullName;
         }
 
-        private Color calcPixel(int px, int py, double minX, double maxX, double minY, double maxY, int width, int height, int maxIterations)
+        static private Color calcPixel(int px, int py, double minX, double maxX, double minY, double maxY, int width, int height, int maxIterations)
         {
             var tuple = normalizeToViewRectangle(px, py, minX, maxX, minY, maxY, width, height);
             double cx = tuple.Item1;
@@ -90,7 +113,7 @@ namespace Mandelbrot
             for (int n = 0; n < maxIterations; n++)
             {
                 double x = (zx * zx - zy * zy) + cx;
-                double y = (zx * zx + zy * zy) + cy;
+                double y = (zy * zx + zx * zy) + cy; //here was an errror;
                 if ((x * x + y * y) > 4)
                 {
                     return GetColor(n);
@@ -101,28 +124,29 @@ namespace Mandelbrot
             return Color.Black;
         }
 
-        private Tuple<double,double> normalizeToViewRectangle(int px, int py, double minX, double maxX, double minY, double maxY, int width, int height)
+        static private Tuple<double,double> normalizeToViewRectangle(int px, int py, double minX, double maxX, double minY, double maxY, int width, int height)
         {
             double normalizedX = normalize(minX, maxX, px, width);
             double normalizedY = normalize(minY, maxY, py, height);
             return Tuple.Create(normalizedX,normalizedY);
         }
 
-        private double normalize(double min, double max, double p, int size)
+        static private double normalize(double min, double max, double p, int size)
         {
             return min + (p / size) * (max - min);
         }
 
-        private Color GetColor(int n)
+        static private Color GetColor(int n)
         {
             int r = (n * 9) % 256;
             int g = (n * 6) % 256;
             int b = (n * 3) % 256;
 
+
             return Color.FromArgb(r, g, b);
         }
 
-        private void CreateMandelbrotImage(Bitmap bitmap, Color[,] result)
+        static private void CreateMandelbrotImage(Bitmap bitmap, Color[,] result)
         {
             for (int y = 0; y < result.GetLength(1); y++)
             {
