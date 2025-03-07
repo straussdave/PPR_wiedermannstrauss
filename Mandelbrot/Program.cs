@@ -15,16 +15,16 @@ namespace Mandelbrot
             int width = int.Parse(Console.ReadLine());
             Console.WriteLine("Height of image: ");
             int height = int.Parse(Console.ReadLine());
-            //Console.WriteLine("min x: ");
-            //double minX = double.Parse(Console.ReadLine());
-            //Console.WriteLine("max x: ");
-            //double maxX = double.Parse(Console.ReadLine());
-            //Console.WriteLine("min y: ");
-            //double minY = double.Parse(Console.ReadLine());
-            //Console.WriteLine("max y: ");
-            //double maxY = double.Parse(Console.ReadLine());
-            //Console.WriteLine("max iterations: ");
-            //int maxIterations = int.Parse(Console.ReadLine());
+            Console.WriteLine("min x: ");
+            double minX = double.Parse(Console.ReadLine());
+            Console.WriteLine("max x: ");
+            double maxX = double.Parse(Console.ReadLine());
+            Console.WriteLine("min y: ");
+            double minY = double.Parse(Console.ReadLine());
+            Console.WriteLine("max y: ");
+            double maxY = double.Parse(Console.ReadLine());
+            Console.WriteLine("max iterations: ");
+            int maxIterations = int.Parse(Console.ReadLine());
 
             //Seepferd
             //double minX = -0.85;
@@ -41,11 +41,11 @@ namespace Mandelbrot
             //int maxIterations = 1000;
 
             //intput to measure:
-            double minX = -2.0;
-            double minY = -1.0;
-            double maxX = 1.0;
-            double maxY = 1.0;
-            int maxIterations = 500;
+            //double minX = -2.0;
+            //double minY = -1.0;
+            //double maxX = 1.0;
+            //double maxY = 1.0;
+            //int maxIterations = 500;
 
             Bitmap bitmap = new Bitmap(width, height);
 
@@ -64,11 +64,11 @@ namespace Mandelbrot
         {
             int maxCores = Environment.ProcessorCount;
             ParallelOptions options = new ParallelOptions { MaxDegreeOfParallelism = maxCores };
-            for (int usedCores = 1; usedCores <= maxCores; usedCores++)
-            {
+            //for (int usedCores = 1; usedCores <= maxCores; usedCores++)
+            //{
                 Stopwatch stopwatch = new Stopwatch();
-                options.MaxDegreeOfParallelism = usedCores;
-                stopwatch.Start();
+                //options.MaxDegreeOfParallelism = usedCores;
+                //stopwatch.Start();
                 Parallel.For(0, height, options, y =>
                 {
                     for (int x = 0; x < width; x++)
@@ -78,10 +78,10 @@ namespace Mandelbrot
                         result[x, y] = calcPixel(localx, localy, minX, maxX, minY, maxY, width, height, maxIterations);
                     }
                 });
-                stopwatch.Stop(); ;
-                Console.WriteLine("Needed time when using " + usedCores + " cores: " + stopwatch.ElapsedMilliseconds + "ms");
+                //stopwatch.Stop(); ;
+                //Console.WriteLine("Needed time when using " + usedCores + " cores: " + stopwatch.ElapsedMilliseconds + "ms");
                 
-            }
+            //}
         }
 
         static private void SerialCalculation(Color[,] result, int height, int width, double minX, double maxX, double minY, double maxY, int maxIterations)
