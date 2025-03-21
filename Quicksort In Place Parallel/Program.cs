@@ -8,7 +8,7 @@ namespace Quicksort_In_Place_Parallel
         static async Task Main(string[] args)
         {
             //ExecuteQuicksortBenchmark(10000000);
-            ExecuteMergesortBenchmark(CreateArray(100000));
+            await ExecuteMergesortBenchmarkAsync(CreateArray(10));
         }
 
         private static int[] CreateArray(int arraySize)
@@ -22,11 +22,11 @@ namespace Quicksort_In_Place_Parallel
             return array;
         }
 
-        private static void ExecuteMergesortBenchmark(int[] array)
+        private static async Task ExecuteMergesortBenchmarkAsync(int[] array)
         {
             SingleThreadBenchmarkMergesort(array);
             //NaiveParallelBenchmarkMergesort(array);
-            ThresholdParallelBenchmarkMergesort(array, 10000);
+            await ThresholdParallelBenchmarkMergesort(array);
         }
 
         private static void SingleThreadBenchmarkMergesort(int[] array)
@@ -77,28 +77,46 @@ namespace Quicksort_In_Place_Parallel
             Console.WriteLine("------------------- Naive Parallel Benchmark Mergesort END -------------------");
         }
 
-        private static void ThresholdParallelBenchmarkMergesort(int[] array, int threshold)
+        private static async Task ThresholdParallelBenchmarkMergesort(int[] array)
         {
+
             Console.WriteLine("------------------- Threshold Parallel Benchmark Mergesort START -------------------");
-            int[] arrayToSort = new int[array.Length];
-            Array.Copy(array, arrayToSort, array.Length);
             //Console.WriteLine("Unsortiertes Array: ");
             //printArray(arrayToSort);
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-            arrayToSort = MergesortThresholdParallel(arrayToSort, threshold).Result;
-            sw.Stop();
-            if (isSorted(arrayToSort))
+            string filePath = "MergsortThresholdResults.csv";
+            using (StreamWriter writer = new StreamWriter(filePath))
             {
-                Console.WriteLine("Sort completed in " + sw.ElapsedMilliseconds + "ms");
-            }
-            else
-            {
-                Console.WriteLine("Not sorted correctly!!!");
-                Console.WriteLine("Sortiertes Array: ");
-                printArray(arrayToSort);
+                writer.WriteLine("Threshold,Time(ms)");
+                
+                for(int i = 0; i < array.Length / 2; i = i + array.Length/(array.Length/10))
+                {
+                    int[] arrayToSort = (int[])array.Clone();
+                    Stopwatch sw = new Stopwatch();
+                    int threshold = 2;
+                    sw.Start();
+                    arrayToSort = await MergesortThresholdParallel(arrayToSort, threshold);
+                    sw.Stop();
+
+                    long elapsedMs = sw.ElapsedMilliseconds;
+                    writer.WriteLine($"{threshold},{elapsedMs}");
+
+                    if (isSorted(arrayToSort))
+                    {
+                        Console.WriteLine($"ParallelMergesort with Threshold <{threshold}> took: {elapsedMs}ms");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"ParallelMergesort with Threshold <{threshold}> did not sort correctly!!!");
+                        Console.WriteLine("unsorted array:");
+                        printArray(array);
+                        Console.WriteLine("\"sorted\" array: ");
+                        printArray(arrayToSort);
+                    }
+                }
+                
             }
             Console.WriteLine("------------------- Threshold Parallel Benchmark Mergesort END -------------------");
+            Console.WriteLine($"Results written to {filePath}");
         }
 
         private static int[] Mergesort(int[] array)
@@ -146,8 +164,8 @@ namespace Quicksort_In_Place_Parallel
                 int[] arrayOne =  SplitArray(array, 0, array.Length / 2);
                 int[] arrayTwo = SplitArray(array, array.Length / 2, array.Length);
 
-                Task<int[]> leftTask = Task.Run(() => MergesortNaiveParallel(arrayOne));
-                Task<int[]> rightTask = Task.Run(() => MergesortNaiveParallel(arrayTwo));
+                Task<int[]> leftTask = Task.Run(() => MergesortThresholdParallel(arrayOne, threshold));
+                Task<int[]> rightTask = Task.Run(() => MergesortThresholdParallel(arrayTwo, threshold));
                 await Task.WhenAll(leftTask, rightTask);
                 return Merge(leftTask.Result, rightTask.Result);
             }
@@ -400,7 +418,7 @@ namespace Quicksort_In_Place_Parallel
         {
             Console.WriteLine("--------- Parallel with Threshold Benchmark START ---------\n\n\n");
 
-            string filePath = "ThresholdResults.csv";
+            string filePath = "QuicksortThresholdResults.csv";
             using (StreamWriter writer = new StreamWriter(filePath))
             {
                 writer.WriteLine("Threshold,Time(ms)");
