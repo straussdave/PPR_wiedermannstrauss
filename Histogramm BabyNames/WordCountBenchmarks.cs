@@ -1,49 +1,28 @@
 ﻿using BenchmarkDotNet.Attributes;
 using System.Collections.Concurrent;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
+using BenchmarkDotNet.Diagnosers;
+using BenchmarkDotNet.Configs;
 
 namespace Histogramm_BabyNames;
 
-[MemoryDiagnoser]
-[ShortRunJob]
-[IterationCount(3)]
-[WarmupCount(1)]
-[InvocationCount(100)]
-[ThreadingDiagnoser]
 public class WordCountBenchmarks
 {
     private string[] allLines = null!;
     private const string FilePath = "war_and_peace.txt";
 
-    // Wird nur von der Parallel-Methode verwendet!
-    [Params( 400,500, 80000,90000,10000,120000)]
-    public int BatchSize;
 
     [GlobalSetup]
     public void Setup()
     {
+        // Load all lines of the text file
         allLines = File.ReadAllLines(FilePath);
     }
 
-    [Benchmark(Baseline = true)]
-    public Dictionary<string, int> CountWordsSequenziell()
-    {
-        var wordCounts = new Dictionary<string, int>();
-
-        foreach (string line in allLines)
-        {
-            foreach (string word in line.Split([' ', ',', '.', '!', '?', ';', ':', '"', '&']))
-            {
-                if (!string.IsNullOrWhiteSpace(word))
-                {
-                    wordCounts.TryAdd(word, 0);
-                    wordCounts[word]++;
-                }
-            }
-        }
-
-        return wordCounts;
-    }
+    [Params(162457, 162457)]
+    public int BatchSize;
 
     [Benchmark]
     public ConcurrentDictionary<string, int> CountWordsParallel()
@@ -68,6 +47,7 @@ public class WordCountBenchmarks
                 }
             }
 
+            // Merge local counts into global counts
             foreach (var kvp in localCounts)
             {
                 globalCounts.AddOrUpdate(kvp.Key, kvp.Value, (_, oldVal) => oldVal + kvp.Value);
